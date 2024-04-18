@@ -1,0 +1,5 @@
+
+
+
+class BatchRequester(object):
+    pass
