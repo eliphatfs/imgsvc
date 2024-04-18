@@ -1,10 +1,12 @@
 import io
 import os
 import json
+import time
 import tarfile
 import argparse
 import requests
 import traceback
+
 from urllib.parse import urlparse
 from typing import List, Dict, Type
 from multiprocessing.pool import ThreadPool, AsyncResult
@@ -15,9 +17,23 @@ from ..engines import AbstractEngine, CV2Engine, PILEngine
 def download_to_memory(req):
     try:
         idx, (engine, src, enc, ops) = req
-        return idx, (engine, src, enc, ops), requests.get(src).content, None
+        for i in range(4):
+            try:
+                r = requests.get(src)
+                c = r.content
+            except Exception:
+                if i == 3:
+                    raise
+                r = None
+                c = None
+            if r is not None:
+                r.raise_for_status()
+            if c is not None:
+                return idx, (engine, src, enc, ops), c, None
+            time.sleep(i ** 2)
+        return idx, (engine, src, enc, ops), c, None
     except Exception as exc:
-        return None, None, None, exc
+        return None, (None, None, None, None), None, exc
 
 
 def execute_op(engine: AbstractEngine, x, op: list):
