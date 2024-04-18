@@ -120,6 +120,8 @@ def main():
     args = argp.parse_args()
     allow_url_hosts = set(args.allow_url_hosts)
     with ThreadPool(args.io_threads) as io_pool, ThreadPool(args.engine_threads) as engine_pool:
-        with ThreadingHTTPServer(('127.0.0.1', 80), ImageServer) as server:
-            print("Serving at http://127.0.0.1:80")
+        ip = os.getenv("IMGSVC_BIND_IP", "127.0.0.1")
+        port = int(os.getenv("IMGSVC_BIND_PORT", 80))
+        with ThreadingHTTPServer((ip, port), ImageServer) as server:
+            print(f"Serving at http://{ip}:{port}")
             server.serve_forever()
