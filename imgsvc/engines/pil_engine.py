@@ -6,7 +6,7 @@ from .abstract_engine import AbstractEngine
 
 class PILEngine(AbstractEngine):
     def load(self, bs: bytes):
-        return Image.open(bs)
+        return Image.open(io.BytesIO(bs))
 
     def crop(self, image: Image.Image, x: int, y: int, w: int, h: int):
         return image.crop((x, y, x + w, y + h))
