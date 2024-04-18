@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: haosu-imgsvc-deployment
+  namespace: haosu-imgsvc
+spec:
+  replicas: 20
+  selector:
+    matchLabels:
+      user: ruoxi
+  template:
+    metadata:
+      labels:
+        user: ruoxi
+        app: haosu-imgsvc
+    spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: haosu-imgsvc
+      containers:
+      - name: imgsvc
+        image: eliphatfs/imgsvc:latest
+        command: ["/bin/bash"]
+        args:
+          - "-c"
+          - |
+            imgsvc-server
+        env:
+          - name: IMGSVC_ALLOW_URL_HOSTS
+            value: "rook-ceph-rgw-haosu.rook-haosu"
+          - name: IMGSVC_IO_THREADS
+            value: "32"
+          - name: IMGSVC_ENGINE_THREADS
+            value: "8"
+          - name: IMGSVC_BIND_IP
+            value: "0.0.0.0"
+          - name: IMGSVC_BIND_PORT
+            value: "80"
+          - name: OPENCV_IO_ENABLE_OPENEXR
+            value: "1"
+        resources:
+          limits:
+            memory: 16Gi
+            cpu: 9
+          requests:
+            memory: 2Gi
+            cpu: 1
+        volumeMounts:
+          - mountPath: /dev/shm
+            name: dshm
+      volumes:
+        - name: dshm
+          emptyDir:
+            medium: Memory
+      tolerations:
+        - effect: NoSchedule
+          key:  nautilus.io/haosu
+          operator: Exists
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                - key: topology.kubernetes.io/region
+                  operator: In
+                  values:
+                  - us-west
+                - key: nautilus.io/group
+                  operator: In
+                  values:
+                  - haosu
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    k8s-app: haosu-imgsvc
+  name: haosu-imgsvc
+  namespace: haosu-imgsvc
+spec:
+  ports:
+  - port: 8080
+    protocol: TCP
+    targetPort: 80
+  selector:
+    app: haosu-imgsvc
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: haproxy
+  name: haosu-imgsvc-ingress
+  namespace: haosu-imgsvc
+spec:
+  rules:
+  - host: haosu-imgsvc.nrp-nautilus.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: haosu-imgsvc
+            port:
+              number: 8080
+  tls:
+  - hosts:
+    - haosu-imgsvc.nrp-nautilus.io
