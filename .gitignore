@@ -1,2 +1,4 @@
 /test
 *.lprof
+__pycache__
+*.egg-info
