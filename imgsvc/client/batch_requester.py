@@ -1,5 +1,4 @@
 import io
-import time
 import tarfile
 import requests
 import requests.adapters
@@ -13,21 +12,15 @@ class BatchRequester(object):
 
     def get(self, reqs: List[ProcessRequest], timeout=10, retries=2) -> List[bytes]:
         ser = [[req.engine, req.src, req.enc, req.ops] for req in reqs]
-        session = requests.Session()
-        session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=0, pool_maxsize=0))
-        for i in range(retries):
-            try:
-                post = requests.post(self.endpoint, json=ser, timeout=timeout)
-            except requests.ConnectionError:
-                if i == retries - 1:
-                    raise
-                time.sleep(i + 1)
-                continue
-            if post.status_code != 200:
-                raise ValueError('request failed', post.text)
-            recv = io.BytesIO(post.content)
-            results = []
-            with tarfile.TarFile(fileobj=recv) as tar:
-                for i in range(len(reqs)):
-                    results.append(tar.extractfile(str(i)).read())
-            return results
+        with requests.Session() as session:
+            session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=1, pool_maxsize=1, max_retries=3))
+            for i in range(retries):
+                post = session.post(self.endpoint, json=ser, timeout=timeout)
+                if post.status_code != 200:
+                    raise ValueError('request failed', post.text)
+                recv = io.BytesIO(post.content)
+                results = []
+                with tarfile.TarFile(fileobj=recv) as tar:
+                    for i in range(len(reqs)):
+                        results.append(tar.extractfile(str(i)).read())
+                return results
