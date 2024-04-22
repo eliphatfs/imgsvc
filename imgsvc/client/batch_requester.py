@@ -1,4 +1,5 @@
 import io
+import time
 import tarfile
 import requests
 from typing import List
@@ -17,6 +18,7 @@ class BatchRequester(object):
             except requests.ConnectionError:
                 if i == retries - 1:
                     raise
+                time.sleep(i + 1)
                 continue
             if post.status_code != 200:
                 raise ValueError('request failed', post.text)
