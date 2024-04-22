@@ -2,6 +2,7 @@ import io
 import time
 import tarfile
 import requests
+import requests.adapters
 from typing import List
 from .process_request import ProcessRequest
 
@@ -12,6 +13,8 @@ class BatchRequester(object):
 
     def get(self, reqs: List[ProcessRequest], timeout=10, retries=2) -> List[bytes]:
         ser = [[req.engine, req.src, req.enc, req.ops] for req in reqs]
+        session = requests.Session()
+        session.mount('https://', requests.adapters.HTTPAdapter(pool_connections=0, pool_maxsize=0))
         for i in range(retries):
             try:
                 post = requests.post(self.endpoint, json=ser, timeout=timeout)
